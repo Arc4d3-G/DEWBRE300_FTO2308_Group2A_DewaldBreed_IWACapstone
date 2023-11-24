@@ -1,7 +1,8 @@
 import { BOOKS_PER_PAGE, authors, genres, books } from "./data.js";
-import {matches, page} from "./scripts.js";
+import {page} from "./scripts.js";
+
 /**
- * An object literal containing references to the relevant HTML elements
+ * An object literal containing query-selectors of the relevant HTML elements
  */
 export const html = {
     
@@ -37,7 +38,10 @@ export const html = {
         list: document.querySelector('[data-list-items]')
     }
 }
-
+/**
+ * An object literal containing css values for changing the theme colors.
+ * @see handleSettingsSubmit in scripts.js for it's use.
+ */
 export const css = {
     day: {
         dark: '10, 10, 20',
@@ -52,12 +56,25 @@ export const css = {
 
 // PREVIEW
 /**
- * Function that creates HTML for each book in data.js that will then
- * be appended to the list-items div in our page main body.
+ * Function that creates and returns HTML for book previews to be appended
+ * to the list element. 
  * 
- * @returns {HTMLElement}
+ * @param {Object} targetObject - Accepts any object literal that 
+ * contains book information, in this case objects {@link book} from
+ * data.js, or once a search form has been submitted, {@link searchResult} 
+ * from scripts.js .
+ * 
+ * @param {Number} rangeStart - Defines where slicing of the targetObject
+ * should occur, which is calculated by taking the current {@link page} value
+ * and multiplying it by {@link BOOKS_PER_PAGE}
+ * 
+ * @param {Number} rangeEnd - Similar to rangeStart but defines where slicing
+ * should end.
+ * 
+ * @returns {DocumentFragment} listFragment - Returns the newly created document
+ * fragment which can then be appended to the list element.
  */
-export const createPreviewHTML = (targetObject, rangeStart, rangeEnd) => {
+export const generatePreviewHtml = (targetObject, rangeStart, rangeEnd) => {
     const listFragment = document.createDocumentFragment()
     const extractedBooks = targetObject.slice(rangeStart, rangeEnd)
     for (let { author, image, title, id } of extractedBooks) {
@@ -84,6 +101,49 @@ export const createPreviewHTML = (targetObject, rangeStart, rangeEnd) => {
     return listFragment
 }
 
+/**
+ * Generates data for the preview overlay by creating an array from the event path,
+ * with the event being a 'click' on any book preview in the list-items element, and
+ * then inserts this data to the relevant element.
+ * 
+ * It does this by checking if any of the nodes in the array contains a dataset of "id",
+ * and if so, sets {@link previewId} to the value of the "id" dataset. It then checks if
+ * any of the {@link singleBook} in {@link books} contains an "id" key with a matching value and
+ * sets {@link active} to equal that {@link singleBook}.
+ */
+export const generatePreviewOverlayData = (event) => {
+    const pathArray = event.composedPath()
+    let active = undefined
+    let previewId = ""
+    for (let node of pathArray) {
+        if (node.dataset.id !== undefined){
+            previewId = node.dataset.id
+            break
+        } 
+    }
+    for (const singleBook of books) {
+        if (previewId === singleBook.id){
+            active = singleBook
+        }
+    }
+
+  html.list.blur.src = active.image
+  html.list.image.src = active.image
+  html.list.title.innerText = active.title
+  html.list.subtitle.innerText = `${authors[active.author]} (${new Date(active.published).getFullYear()})`
+  html.list.description.innerText = active.description
+}
+
+/**
+ * A function that creates and returns an object consisting of all the {@link singleBook} of {@link books}
+ * which match the search parameters.
+ * 
+ * @param {Object} filters - This accepts an object containing data from the search form, 
+ * defined as {@link filters} by {@link handleSearchSubmit} in scripts.js 
+ * 
+ * @returns {Object} result - This is used by {@link handleSearchSubmit} to define {@link searchResult} 
+ * in scripts.js
+ */
 export const generateSearchResults = (filters) => {
     
     let result = []
@@ -104,19 +164,11 @@ export const generateSearchResults = (filters) => {
  return result
 }
 
-export const updateRemaining = () => {
-    const initial = matches.length - (page * BOOKS_PER_PAGE)
-    const remaining = (initial > 0) ? initial : 0
-    html.list.button.disabled = !(remaining > 0)
-    
-    html.list.button.innerHTML = /* html */ `
-        <span>Show more</span>
-        <span class="list__remaining"> (${remaining})</span>
-    `
-}
-
-// GENRE FILTER OPTIONS
-
+/**
+ * A function that generates a list of genres from {@link genres} as <option> elements to be appended to the 
+ * search form genre <input> dropdown menu. 
+ * @returns {DocumentFragment} genreFragment - Returns the newly created document fragment to be appended.
+ */
 export const generateSearchGenres = () => {
     const genreFragment = document.createDocumentFragment()
     const element = document.createElement('option')
@@ -132,8 +184,13 @@ export const generateSearchGenres = () => {
     }
     return genreFragment
 }
+html.search.genres.appendChild(generateSearchGenres())
 
-// AUTHOR FILTER OPTIONS
+
+/**
+ * Similar to {@link generateSearchGenres} but uses {@link authors} to create the <option> elements.
+ * @returns {DocumentFragment} genreFragment - Returns the newly created document fragment to be appended.
+ */
 export const generateSearchAuthors = () => {
     const authorsFragment = document.createDocumentFragment()
     const authorsElement = document.createElement('option')
@@ -149,6 +206,4 @@ export const generateSearchAuthors = () => {
     }
     return authorsFragment
 }
-
-
-
+html.search.authors.appendChild(generateSearchAuthors())
